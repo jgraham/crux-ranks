@@ -1,0 +1,9 @@
+{
+  "domain": "charts.ecmwf.int",
+  "ranks": [
+    {
+      "date": "202409",
+      "rank": 500000
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "domain": "intent.recurring.pay.bka.sh",
+  "ranks": [
+    {
+      "date": "202409",
+      "rank": 100000
+    }
+  ]
+}

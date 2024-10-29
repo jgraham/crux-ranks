@@ -1,0 +1,9 @@
+{
+  "domain": "prod-app01-blue.fastbridge.org",
+  "ranks": [
+    {
+      "date": "202409",
+      "rank": 100000
+    }
+  ]
+}
