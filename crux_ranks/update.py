@@ -82,7 +82,8 @@ def get_ranks(client: bigquery.Client, metadata: dict[str, Any]) -> Iterator[tup
 FROM
   `chrome-ux-report.experimental.global`
 WHERE
-  yyyymm = {metadata['date']}
+  yyyymm = {metadata['date']} AND
+  experimental.popularity.rank < 1000000
 GROUP BY
   host;
 """
