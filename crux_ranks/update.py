@@ -1,3 +1,4 @@
+import argparse
 import json
 import hashlib
 import os
@@ -15,7 +16,7 @@ def get_domain_path_parts(domain: str) -> tuple[str, str, str]:
     return parts
 
 
-def write_domain(date: str, output_dir: str, domain: str, rank: int):
+def write_domain(date: str, output_dir: str, domain: str, global_rank: int, local_rank: str):
     path_parts = get_domain_path_parts(domain)
     output_path = os.path.join(output_dir, *path_parts[:2])
     os.makedirs(output_path, exist_ok=True)
@@ -24,17 +25,14 @@ def write_domain(date: str, output_dir: str, domain: str, rank: int):
         with open(output_file) as f:
             data = json.load(f)
     else:
-        data = {
-            "domain": domain,
-            "ranks": []
-        }
+        data = [domain, {}]
 
-    assert data["domain"] == domain
+    assert data[0] == domain
 
-    data["ranks"].insert(0, {"date": date, "rank": rank})
+    data[1][date] = [global_rank, local_rank]
 
     with open(output_file, "w") as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f)
 
 
 def get_current_metadata(meta_path: str) -> Optional[dict[str, Any]]:
@@ -70,50 +68,63 @@ LIMIT
     try:
         date = int(date_str)
     except ValueError as e:
-        raise ValueError(f"Can't convert {date} to int") from e
+        raise ValueError(f"Can't convert {date_str} to int") from e
 
     return {"date": date}
 
 
-def get_ranks(client: bigquery.Client, metadata: dict[str, Any]) -> Iterator[tuple[tuple[int, int], str, int]]:
+def get_ranks(client: bigquery.Client, yyyymm: int) -> Iterator[tuple[tuple[int, int], str, int]]:
     query = rf"""SELECT
-  NET.HOST(origin) AS host,
-  MIN(experimental.popularity.rank) as rank
+  `moz-fx-dev-dschubert-wckb.webcompat_knowledge_base.WEBCOMPAT_HOST`(host) AS host,
+    global_rank,
+    local_rank
 FROM
-  `chrome-ux-report.experimental.global`
+  `moz-fx-dev-dschubert-wckb.crux_imported.host_min_ranks`
 WHERE
-  yyyymm = {metadata['date']} AND
-  experimental.popularity.rank < 1000000
-GROUP BY
-  host;
+  yyyymm = {yyyymm} AND
+  global_rank < 1000000
 """
 
     result = client.query(query).result()
     total_rows = result.total_rows
     print(f"Have {total_rows} total domains")
     for i, row in enumerate(result):
-        yield (i, total_rows), row["host"], row["rank"]
+        yield (i, total_rows), row["host"], row["global_rank"], row["local_rank"]
+
+
+def get_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--force", action="store_true", help="Force update of existing data")
+    parser.add_argument("--yyyymm", type=int, help="CrUX data to load")
+    return parser
 
 
 def main():
+    parser = get_parser()
+    args = parser.parse_args()
+
     client = bigquery.Client()
 
-    meta_path = os.path.join(top_dir, "ranks", "latest.json")
-    output_path = os.path.join(top_dir, "ranks", "domains")
+    meta_path = os.path.join(top_dir, "v2", "ranks", "latest.json")
+    if not os.path.exists(meta_path):
+        os.makedirs(os.path.dirname(meta_path))
+    output_path = os.path.join(top_dir, "v2", "ranks", "domains")
 
     current_metadata = get_current_metadata(meta_path)
     new_metadata = get_latest_metadata(client)
-    if current_metadata and current_metadata["date"] >= new_metadata["date"]:
+    target_date = args.yyyymm if args.yyyymm else new_metadata["date"]
+
+    if not args.force and current_metadata and current_metadata["date"] >= target_date:
         print(f"Already up to date with CrUX data from {current_metadata['date']}")
         return
 
     last_progress_update = 0
-    for progress, domain, rank in get_ranks(client, new_metadata):
+    for progress, host, global_rank, local_rank in get_ranks(client, target_date):
         progress_percent = int(100 * progress[0] / progress[1])
         if progress_percent != last_progress_update:
             print(f"{progress_percent}%")
             last_progress_update = progress_percent
-        write_domain(str(new_metadata["date"]), output_path, domain, rank)
+        write_domain(str(target_date), output_path, host, global_rank, local_rank)
 
     with open(meta_path, "w") as f:
         json.dump(new_metadata, f, indent=2)
