@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crux-ranks"
+description = "Cache CrUX ranking data"
+authors = [
+  {name = "Mozilla Corporation"}
+]
+version = "0.1.0"
+requires-python = ">=3.12"
+classifiers = [
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+  "google-cloud-bigquery==3.34.0",
+]
+
+[project.optional-dependencies]
+test = [
+  "mypy==1.17.0",
+  "ruff==0.12.4",
+]
+
+[project.scripts]
+crux-ranks-update = "crux_ranks.update:main"
+
+[tool.mypy]
+disallow_untyped_defs = true
+files = "crux_ranks/**/*.py"
+
+[tool.setuptools]
+packages = [
+  "crux_ranks"
+]
