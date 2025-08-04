@@ -16,7 +16,9 @@ def get_domain_path_parts(domain: str) -> tuple[str, str, str]:
     return parts
 
 
-def write_domain(date: str, output_dir: str, domain: str, global_rank: int, local_rank: int) -> None:
+def write_domain(
+    date: str, output_dir: str, domain: str, global_rank: int, local_rank: int
+) -> None:
     path_parts = get_domain_path_parts(domain)
     output_path = os.path.join(output_dir, *path_parts[:2])
     os.makedirs(output_path, exist_ok=True)
@@ -73,7 +75,9 @@ LIMIT
     return {"date": date}
 
 
-def get_ranks(client: bigquery.Client, yyyymm: int) -> Iterator[tuple[tuple[int, int], str, int, int]]:
+def get_ranks(
+    client: bigquery.Client, yyyymm: int
+) -> Iterator[tuple[tuple[int, int], str, int, int]]:
     query = rf"""SELECT
   `moz-fx-dev-dschubert-wckb.webcompat_knowledge_base.WEBCOMPAT_HOST`(host) AS host,
     global_rank,
@@ -94,7 +98,9 @@ WHERE
 
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--force", action="store_true", help="Force update of existing data")
+    parser.add_argument(
+        "--force", action="store_true", help="Force update of existing data"
+    )
     parser.add_argument("--yyyymm", type=int, help="CrUX data to load")
     return parser
 
