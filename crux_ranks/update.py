@@ -17,7 +17,12 @@ def get_domain_path_parts(domain: str) -> tuple[str, str, str]:
 
 
 def write_domain(
-    date: str, output_dir: str, domain: str, global_rank: int, local_rank: int
+    date: str,
+    output_dir: str,
+    domain: str,
+    global_rank: int,
+    local_rank: int,
+    core_rank: int,
 ) -> None:
     path_parts = get_domain_path_parts(domain)
     output_path = os.path.join(output_dir, *path_parts[:2])
@@ -27,11 +32,15 @@ def write_domain(
         with open(output_file) as f:
             data = json.load(f)
     else:
-        data = [domain, {}]
+        data = {"domain": domain, "ranks": {}}
+    assert data["domain"] == domain
+    assert isinstance(data["ranks"], dict)
 
-    assert data[0] == domain
-
-    data[1][date] = [global_rank, local_rank]
+    data["ranks"][date] = {
+        "global": global_rank,
+        "local": local_rank,
+        "core": core_rank,
+    }
 
     with open(output_file, "w") as f:
         json.dump(data, f)
@@ -77,11 +86,12 @@ LIMIT
 
 def get_ranks(
     client: bigquery.Client, yyyymm: int
-) -> Iterator[tuple[tuple[int, int], str, int, int]]:
+) -> Iterator[tuple[tuple[int, int], str, int, int, int]]:
     query = rf"""SELECT
   `moz-fx-dev-dschubert-wckb.webcompat_knowledge_base.WEBCOMPAT_HOST`(host) AS host,
     global_rank,
-    local_rank
+    local_rank,
+    core_rank
 FROM
   `moz-fx-dev-dschubert-wckb.crux_imported.host_min_ranks`
 WHERE
@@ -93,7 +103,13 @@ WHERE
     total_rows = result.total_rows
     print(f"Have {total_rows} total domains")
     for i, row in enumerate(result):
-        yield (i, total_rows), row["host"], row["global_rank"], row["local_rank"]
+        yield (
+            (i, total_rows),
+            row["host"],
+            row["global_rank"],
+            row["local_rank"],
+            row["core_rank"],
+        )
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -111,10 +127,12 @@ def main() -> None:
 
     client = bigquery.Client()
 
-    meta_path = os.path.join(top_dir, "v2", "ranks", "latest.json")
+    version_str = "v3"
+
+    meta_path = os.path.join(top_dir, version_str, "ranks", "latest.json")
     if not os.path.exists(meta_path):
         os.makedirs(os.path.dirname(meta_path))
-    output_path = os.path.join(top_dir, "v2", "ranks", "domains")
+    output_path = os.path.join(top_dir, version_str, "ranks", "domains")
 
     current_metadata = get_current_metadata(meta_path)
     new_metadata = get_latest_metadata(client)
@@ -125,12 +143,16 @@ def main() -> None:
         return
 
     last_progress_update = 0
-    for progress, host, global_rank, local_rank in get_ranks(client, target_date):
+    for progress, host, global_rank, local_rank, core_rank in get_ranks(
+        client, target_date
+    ):
         progress_percent = int(100 * progress[0] / progress[1])
         if progress_percent != last_progress_update:
             print(f"{progress_percent}%")
             last_progress_update = progress_percent
-        write_domain(str(target_date), output_path, host, global_rank, local_rank)
+        write_domain(
+            str(target_date), output_path, host, global_rank, local_rank, core_rank
+        )
 
     with open(meta_path, "w") as f:
         json.dump(new_metadata, f, indent=2)
