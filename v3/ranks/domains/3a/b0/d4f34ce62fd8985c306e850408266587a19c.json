@@ -1,0 +1,1 @@
+{"domain": "pcpucs-prod-nlb-2168a9467d8966e6.elb.us-west-2.amazonaws.com", "ranks": {"202603": {"global": 500000, "local": null, "core": null}}}

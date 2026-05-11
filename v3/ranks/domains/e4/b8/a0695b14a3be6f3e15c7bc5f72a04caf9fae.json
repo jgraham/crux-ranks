@@ -1,0 +1,1 @@
+{"domain": "apiproxy-ftl-http-nlb-38738ca310a7b66b.elb.us-west-2.amazonaws.com", "ranks": {"202603": {"global": 500000, "local": null, "core": null}}}

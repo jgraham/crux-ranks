@@ -1,0 +1,1 @@
+{"domain": "apiproxy-prod-nlb-s1-039a55634a1916a2.elb.us-east-1.amazonaws.com", "ranks": {"202603": {"global": 500000, "local": null, "core": null}}}
